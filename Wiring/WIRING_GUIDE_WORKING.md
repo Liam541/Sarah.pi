@@ -1,181 +1,72 @@
-# SARAH Robot - Working Wiring Configuration
-**Last Updated:** December 31, 2025  
-**Status:** ✅ All 4 motors operational
+# SARAH Raspberry Pi 5 wiring
 
----
+BCM numbers below match `robot_config.json`. The confirmed sensors face
+**front-left, rear, front-right**. The old ?center? sensor is the rear sensor.
 
-## Hardware Overview
-- **Platform:** Raspberry Pi 5
-- **Motor Drivers:** 2× L298N Dual H-Bridge
-- **Motors:** 4× TT DC Motors
-- **Power:** 8V Battery (2× 18650 cells in series)
+## Motors: two L298N boards, four motors
 
----
+| Motor | IN pair (BCM) | Physical header pins | Forward input levels |
+| --- | --- | --- | --- |
+| Left front | 17 / 18 | 11 / 12 | LOW / PWM |
+| Left rear | 15 / 27 | 10 / 13 | PWM / LOW |
+| Right front | 12 / 19 | 32 / 35 | PWM / LOW |
+| Right rear | 26 / 6 | 37 / 31 | LOW / PWM |
 
-## GPIO Pin Assignments
+These polarities preserve the original working mirrored motor arrangement.
+Reverse swaps the active input. A left pivot reverses the left side and drives
+the right side forward; a right pivot does the opposite.
 
-### Left L298N Motor Driver
-| Function | GPIO Pin | Physical Pin | Description |
-|----------|----------|--------------|-------------|
-| IN1      | GPIO17   | Pin 11       | Motor A (front-left) control |
-| IN2      | GPIO18   | Pin 12       | Motor A (front-left) control |
-| IN3      | GPIO15   | Pin 10       | Motor B (back-left) control |
-| IN4      | GPIO27   | Pin 13       | Motor B (back-left) control |
+Keep **ENA and ENB jumpers installed** on both motor boards. Speed is now PWM on
+the direction inputs at 100 Hz. The inactive input is LOW before the opposite
+input is energized; STOP sets all eight inputs LOW. Do not connect a separate
+GPIO enable wire to a jumpered ENA/ENB terminal.
 
-### Right L298N Motor Driver
-| Function | GPIO Pin | Physical Pin | Description |
-|----------|----------|--------------|-------------|
-| IN1      | GPIO12   | Pin 32       | Motor A (front-right) control |
-| IN2      | GPIO19   | Pin 35       | Motor A (front-right) control |
-| IN3      | GPIO26   | Pin 37       | Motor B (back-right) control |
-| IN4      | GPIO6    | Pin 31       | Motor B (back-right) control |
+Default speed caps are 55% manual and 40% autonomous, without a full-power kick.
+Change motor polarity in `robot_config.json` only if physical wheel orientation
+requires it. Test with wheels raised first. PWM duty is not a voltage regulator;
+verify the battery and driver are suitable for the motors' ratings.
 
----
+Power motor drivers from a suitable motor battery and the Pi from its own
+appropriate USB-C supply. Connect the Pi, both driver grounds and sensor grounds
+together. Do not power the Pi from an L298N module's 5 V regulator output. Check
+your particular module's regulator jumper instructions before connecting power.
 
-## Motor Output Wiring
+## HC-SR04 ultrasonic sensors
 
-### Both L298N Drivers (Left & Right)
-| Terminal | Wire Color | Motor Connection |
-|----------|------------|------------------|
-| OUT1     | **Red**    | Motor positive   |
-| OUT2     | **Black**  | Motor negative   |
-| OUT3     | **Black**  | Motor negative   |
-| OUT4     | **Red**    | Motor positive   |
+| Position | Trigger BCM (physical) | Echo BCM (physical) |
+| --- | --- | --- |
+| Front-left | 23 (16) | 24 (18) |
+| Rear | 22 (15) | 25 (22) |
+| Front-right | 9 (21) | 10 (19) |
 
-**Connection Pattern:**
-- **Motor A** (Front): Red → OUT1, Black → OUT2
-- **Motor B** (Back): Red → OUT4, Black → OUT3
+HC-SR04 modules normally use 5 V power and emit a 5 V ECHO signal. **Do not connect
+that ECHO directly to a Pi input.** Use an appropriate level shifter or a divider
+on EACH echo line, for example 1 kohm from ECHO to the GPIO node and 2 kohm from
+that node to ground (approximately 3.3 V). Verify the actual sensor/module type.
+Trigger connects to the corresponding output and all grounds are shared.
 
----
+Sensors are triggered sequentially at least 65 ms apart across the array.
+Distance uses GPIO edge timestamps; a timeout, stuck-high echo or reading over
+400 cm is unknown. A very short echo remains an obstacle. No smoothing averages
+away a newly close obstacle.
 
-## Power Connections
+GPIO9/10 overlap SPI functions and GPIO15 overlaps UART RX. Disable peripheral
+functions that conflict with these assignments. GPIO ownership/pinmux conflicts
+must be resolved; the app rejects duplicate pin assignments. The earlier claim
+that GPIO5/16/20 cannot be driven LOW on all Pi 5 boards was incorrect and has
+been removed.
 
-### L298N Power Inputs
-| Terminal | Connection | Voltage | Notes |
-|----------|------------|---------|-------|
-| +12V     | Battery +  | 8V      | Main motor power |
-| GND      | Battery -  | 0V      | Common ground |
-| +5V      | NOT USED   | -       | Internal regulator disabled |
+## Camera and validation
 
-### Raspberry Pi Power
-- **Power:** Separate USB-C power supply (5V/3A recommended)
-- **DO NOT** power Pi from L298N +5V output
+Use the appropriate Pi 5 camera cable, connect it while powered down, and verify
+CSI detection with `rpicam-hello --list-cameras`. Configuration defaults to
+Picamera2 camera index 0 at 320x240. `RGB888` gives the BGR byte order expected by
+OpenCV. A USB camera can be selected in `robot_config.json`.
 
-### Ground Connection
-- Connect L298N GND to Raspberry Pi GND (Pin 6, 9, 14, 20, 25, 30, 34, or 39)
+Follow the raised-wheel and sensor tests in [README](../README.md). The preserved
+images and L298N document in this directory are historical references; the table
+above and `robot_config.json` describe the current software wiring.
 
----
-
-## Enable Pins (ENA/ENB)
-
-**Configuration:** Jumpers installed on both drivers
-
-| Jumper | Position | Function |
-|--------|----------|----------|
-| ENA    | ✅ ON    | Motor A always enabled (full battery voltage) |
-| ENB    | ✅ ON    | Motor B always enabled (full battery voltage) |
-
-**Note:** With jumpers ON, motors run at full 8V battery power. No PWM speed control is used.
-
----
-
-## Complete Wiring Summary
-
-### Left L298N Driver
-```
-Raspberry Pi 5          L298N (Left)          Motors
-─────────────────       ─────────────         ──────────
-Pin 11 (GPIO17) ──────> IN1                   
-Pin 12 (GPIO18) ──────> IN2                   OUT1 (Red) ──┐
-Pin 10 (GPIO15) ──────> IN3                   OUT2 (Black)─┤─> Front-Left Motor
-Pin 13 (GPIO27) ──────> IN4                   OUT3 (Black)─┤─> Back-Left Motor
-Pin 6  (GND)    ──────> GND                   OUT4 (Red) ──┘
-                        +12V <───── 8V Battery (+)
-                        GND  <───── 8V Battery (-)
-                        ENA  [Jumper ON]
-                        ENB  [Jumper ON]
-```
-
-### Right L298N Driver
-```
-Raspberry Pi 5          L298N (Right)         Motors
-─────────────────       ─────────────         ──────────
-Pin 32 (GPIO12) ──────> IN1                   
-Pin 35 (GPIO19) ──────> IN2                   OUT1 (Red) ──┐
-Pin 37 (GPIO26) ──────> IN3                   OUT2 (Black)─┤─> Front-Right Motor
-Pin 31 (GPIO6)  ──────> IN4                   OUT3 (Black)─┤─> Back-Right Motor
-Pin 6  (GND)    ──────> GND                   OUT4 (Red) ──┘
-                        +12V <───── 8V Battery (+)
-                        GND  <───── 8V Battery (-)
-                        ENA  [Jumper ON]
-                        ENB  [Jumper ON]
-```
-
----
-
-## Important Notes
-
-### ✅ Working Configuration
-- All 4 motors operational and synchronized
-- Right side uses GPIO12/19/26/6 (avoiding GPIO5/16/20 which had pull-up issues on Pi 5)
-- Software handles right-side motor inversion for mirrored chassis mounting
-
-### ⚠️ GPIO Pins to Avoid on Raspberry Pi 5
-The following GPIO pins have hardware pull-up resistors and cannot be reliably driven LOW:
-- **GPIO5** (I2C SDA)
-- **GPIO16** (SPI CE2)
-- **GPIO20** (PCM DIN)
-
-These pins were initially used but caused the right side to malfunction. They have been replaced with GPIO12/19/26.
-
-### 🔧 Troubleshooting
-If motors don't run:
-1. Verify ENA/ENB jumpers are installed
-2. Check battery voltage (should be 7-8V under load)
-3. Confirm ground connection between Pi and L298N
-4. Run `python3 sarah_pi.py` and check for `[DRIVE-GPIO] ✓ All 4 motors set to FORWARD`
-5. Use `gpio readall` or `pinctrl` to verify GPIO pin states
-
-### 📋 Motor Direction Logic
-- **Forward:** All wheels spin to move robot forward
-- **Backward:** All wheels spin to move robot backward
-- **Left Turn:** Right side forward, left side stopped
-- **Right Turn:** Left side forward, right side stopped
-
-Software automatically handles polarity inversion for mirrored right-side motors.
-
----
-
-## Testing Commands
-
-After wiring, test each direction:
-
-```bash
-python3 sarah_pi.py
-# Say "Sarah" then "move forward"
-# Say "Sarah" then "move backward"
-# Say "Sarah" then "turn left"
-# Say "Sarah" then "turn right"
-```
-
-Expected behavior:
-- ✅ Forward: Robot moves forward
-- ✅ Backward: Robot moves backward
-- ✅ Left: Robot rotates left
-- ✅ Right: Robot rotates right
-- ✅ All 4 motors should run during forward/backward commands
-
----
-
-## Configuration Files
-
-This wiring is implemented in:
-- **File:** `sarah_pi.py`
-- **Class:** `Drive` (lines ~3311-3820)
-- **Pin Definitions:** Lines ~3470-3478
-
-No environment variables or external configuration files are used. All pin assignments are hardcoded in the Drive class.
-
----
-
-**End of Wiring Guide**
+References: [Raspberry Pi GPIO documentation](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio),
+[GPIO Zero output devices](https://gpiozero.readthedocs.io/en/latest/api_output.html),
+and [Picamera2 manual](https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf).

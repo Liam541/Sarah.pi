@@ -1,0 +1,5 @@
+-r requirements.txt
+ollama>=0.4,<1
+SpeechRecognition>=3.10,<4
+psutil>=5.9,<8
+# PyAudio/FLAC and optional Piper/MP3 playback are covered in README.md.

@@ -1,0 +1,5 @@
+# Pi camera and GPIO packages come from apt; see README.md.
+requests>=2.31,<3
+numpy>=1.24,<3
+opencv-python>=4.8,<5; platform_system != "Linux"
+pygame>=2.5,<3

@@ -1,0 +1,22 @@
+{
+  "gpiochip": null,
+  "motor_pins": {
+    "left_front": [17, 18], "left_rear": [15, 27],
+    "right_front": [12, 19], "right_rear": [26, 6]
+  },
+  "motor_polarity": {
+    "left_front": -1, "left_rear": 1, "right_front": 1, "right_rear": -1
+  },
+  "ultrasonic_pins": {
+    "front_left": [23, 24], "rear": [22, 25], "front_right": [9, 10]
+  },
+  "safety": {
+    "stop_cm": 25, "turn_cm": 22, "slow_cm": 70,
+    "range_max_age_s": 0.5, "camera_max_age_s": 0.75,
+    "command_lease_s": 0.25,
+    "manual_speed": 55, "auto_speed": 40, "turn_speed": 40, "reverse_speed": 35
+  },
+  "camera": {"backend": "picamera2", "index": 0, "size": [320, 240]},
+  "ai": {"url": "http://127.0.0.1:11434", "model": "moondream", "timeout_s": 45, "max_step_s": 0.6},
+  "controller": {"stop_button": 0, "manual_button": 7, "auto_button": 2, "deadman_button": 4, "deadzone": 0.18}
+}
